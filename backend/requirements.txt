@@ -13,8 +13,9 @@ clerk-backend-api
 asyncpg
 stripe
 redis[asyncio]
-celery[redis]
+celery==5.3.6
 sentry-sdk[fastapi]
 pytest
 pytest-asyncio
 httpx
+kombu==5.3.4
