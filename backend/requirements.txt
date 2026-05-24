@@ -18,4 +18,3 @@ sentry-sdk[fastapi]
 pytest
 pytest-asyncio
 httpx
-audioop-lts
