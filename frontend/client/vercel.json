@@ -1,1 +1,3 @@
-﻿{"routes":[{"src":"/((?!assets/).*)\\.(?:js|css|map|json|png|svg|ico|woff|woff2)$","dest":"/$1"},{"src":"/(.*)","dest":"/index.html"}]}
+﻿{
+  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
+}
