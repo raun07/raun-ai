@@ -95,6 +95,9 @@ cloudinary.config(
     api_secret=os.getenv("CLOUDINARY_API_SECRET"),
 )
 
+CELERY_ENABLED = os.getenv("CELERY_ENABLED", "false").lower() == "true"
+_pipeline_semaphore = asyncio.Semaphore(1)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -336,6 +339,22 @@ def cleanup_jobs(max_age_seconds=3600):
         logging.info("[JobStore] Cleaned up expired in-memory jobs")
 
 
+async def run_pipeline_directly(
+    prompt, job_id, user_id, orientation, footage_ids, export_formats,
+    apply_brand_kit, transition_style, music_id, voice_id,
+    scene_count, include_narration, logo_position, logo_size, logo_timing,
+    logo_url, outro_url, music_seed,
+):
+    async with _pipeline_semaphore:
+        await asyncio.to_thread(
+            generate_video_pipeline,
+            prompt, job_id, user_id, orientation, footage_ids, export_formats,
+            apply_brand_kit, transition_style, music_id, voice_id,
+            scene_count, include_narration, logo_position, logo_size, logo_timing,
+            logo_url, outro_url, music_seed,
+        )
+
+
 def dispatch_generation_job(background_tasks, prompt, job_id, user_id, orientation="portrait", footage_ids=None, export_formats=None, apply_brand_kit=True, transition_style="auto", music_id="", voice_id="", scene_count=3, include_narration=True, logo_position="top-right", logo_size="S", logo_timing="full", logo_url="", outro_url="", music_seed=0):
     request_payload = {
         "prompt": prompt,
@@ -355,22 +374,32 @@ def dispatch_generation_job(background_tasks, prompt, job_id, user_id, orientati
         "music_seed": music_seed,
     }
 
-    try:
-        from worker import celery_app, process_film_job
+    if CELERY_ENABLED:
+        try:
+            from worker import celery_app, process_film_job
 
-        if celery_app is not None and (
-            os.getenv("CELERY_BROKER_URL") or os.getenv("REDIS_URL")
-        ):
-            logging.info(f"[Worker] Dispatching job {job_id} to Celery")
-            process_film_job.delay(job_id, request_payload)
-            return "celery"
-    except Exception as exc:
-        logging.warning(
-            f"[Worker] Celery dispatch unavailable for job {job_id}: {exc}. Falling back to BackgroundTasks."
-        )
+            if celery_app is not None and (
+                os.getenv("CELERY_BROKER_URL") or os.getenv("REDIS_URL")
+            ):
+                logging.info(f"[Worker] Dispatching job {job_id} to Celery")
+                process_film_job.delay(job_id, request_payload)
+                return "celery"
+        except Exception as exc:
+            logging.warning(
+                f"[Worker] Celery dispatch unavailable for job {job_id}: {exc}. Falling back to BackgroundTasks."
+            )
 
     logging.info(f"[Worker] Running job {job_id} with FastAPI BackgroundTasks")
-    background_tasks.add_task(generate_video_pipeline, prompt, job_id, user_id, orientation, footage_ids or [], export_formats or [], apply_brand_kit, transition_style, music_id or "", voice_id or "", scene_count, include_narration, logo_position, logo_size, logo_timing, logo_url or "", outro_url or "", music_seed)
+    background_tasks.add_task(
+        run_pipeline_directly,
+        prompt, job_id, user_id, orientation,
+        footage_ids or [], export_formats or [],
+        apply_brand_kit, transition_style,
+        music_id or "", voice_id or "",
+        scene_count, include_narration,
+        logo_position, logo_size, logo_timing,
+        logo_url or "", outro_url or "", music_seed,
+    )
     return "background"
 
 
