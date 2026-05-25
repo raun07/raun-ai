@@ -625,7 +625,7 @@ def create_video(scenes, voice, music, sfx, mood=None, orientation="portrait", p
                     "-t", str(duration),
                     "-vf", vf,
                     "-map", "0:v:0", "-map", "1:a:0",
-                    "-c:v", "libx264", "-preset", "ultrafast", "-crf", "23",
+                    "-c:v", "libx264", "-preset", "ultrafast", "-crf", "28", "-threads", "1",
                     "-c:a", "aac", "-ar", "44100", "-ac", "2", "-b:a", "128k",
                     "-avoid_negative_ts", "make_zero",
                     "-pix_fmt", "yuv420p",
