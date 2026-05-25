@@ -31,6 +31,8 @@ celery_app = (
 
 if celery_app is not None:
     celery_app.conf.update(
+        worker_max_tasks_per_child=1,
+        worker_prefetch_multiplier=1,
         task_serializer="json",
         result_serializer="json",
         accept_content=["json"],
