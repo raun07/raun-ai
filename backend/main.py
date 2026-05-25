@@ -135,7 +135,7 @@ class PromptRequest(BaseModel):
     transition_style: str = "auto"      # "auto"|"subtle"|"dynamic"|"cinematic"|"hype"|<name>
     music_id: str = ""                  # asset ID of user-uploaded custom music track
     voice_id: str = ""                  # asset ID of user-uploaded/recorded voice
-    scene_count: int = 5                # number of scenes to generate (3-8)
+    scene_count: int = 3                # number of scenes to generate (3-8)
     include_narration: bool = True      # False = music-only, no AI voice
     logo_position: str = "top-right"   # 9-zone grid: top-left/center/right, center-*, bottom-*
     logo_size: str = "S"               # S=6% M=10% L=15% of video width
@@ -336,7 +336,7 @@ def cleanup_jobs(max_age_seconds=3600):
         logging.info("[JobStore] Cleaned up expired in-memory jobs")
 
 
-def dispatch_generation_job(background_tasks, prompt, job_id, user_id, orientation="portrait", footage_ids=None, export_formats=None, apply_brand_kit=True, transition_style="auto", music_id="", voice_id="", scene_count=5, include_narration=True, logo_position="top-right", logo_size="S", logo_timing="full", logo_url="", outro_url="", music_seed=0):
+def dispatch_generation_job(background_tasks, prompt, job_id, user_id, orientation="portrait", footage_ids=None, export_formats=None, apply_brand_kit=True, transition_style="auto", music_id="", voice_id="", scene_count=3, include_narration=True, logo_position="top-right", logo_size="S", logo_timing="full", logo_url="", outro_url="", music_seed=0):
     request_payload = {
         "prompt": prompt,
         "user_id": user_id,
@@ -374,7 +374,7 @@ def dispatch_generation_job(background_tasks, prompt, job_id, user_id, orientati
     return "background"
 
 
-def generate_video_pipeline(prompt, job_id, user_id, orientation="portrait", footage_ids=None, export_formats=None, apply_brand_kit=True, transition_style="auto", music_id="", voice_id="", scene_count=5, include_narration=True, logo_position="top-right", logo_size="S", logo_timing="full", logo_url="", outro_url="", music_seed=0):
+def generate_video_pipeline(prompt, job_id, user_id, orientation="portrait", footage_ids=None, export_formats=None, apply_brand_kit=True, transition_style="auto", music_id="", voice_id="", scene_count=3, include_narration=True, logo_position="top-right", logo_size="S", logo_timing="full", logo_url="", outro_url="", music_seed=0):
     """
     Main video generation pipeline - runs in background.
     Updates the jobs dictionary with status and results.

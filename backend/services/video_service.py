@@ -1,4 +1,5 @@
 import asyncio
+import gc
 import glob as _glob
 import json
 import random
@@ -658,6 +659,9 @@ def create_video(scenes, voice, music, sfx, mood=None, orientation="portrait", p
             f"Prepared clip {i + 1}/{total_clips}",
         )
 
+    gc.collect()
+    logging.info("[VideoService] GC collect after clip processing")
+
     if not video_files:
         return None
 
@@ -767,6 +771,16 @@ def create_video(scenes, voice, music, sfx, mood=None, orientation="portrait", p
     logging.info(f"[VideoService] temp.mp4 created at {temp_path}")
     if not os.path.exists(temp_path):
         raise Exception("temp.mp4 was not created")
+
+    # Delete per-scene clip files now that they're assembled into temp.mp4
+    for clip_f in video_files:
+        try:
+            if os.path.exists(clip_f):
+                os.remove(clip_f)
+        except Exception:
+            pass
+    gc.collect()
+    logging.info("[VideoService] Cleaned up per-scene clip files")
 
     update_progress(65, "Clips assembled")
 
@@ -903,6 +917,8 @@ def create_video(scenes, voice, music, sfx, mood=None, orientation="portrait", p
         ),
         stage_name="Audio mix",
     )
+    gc.collect()
+    logging.info("[VideoService] GC collect after audio mix")
 
     output = str((FILES_DIR / f"final_{int(time.time())}.mp4").resolve())
     audio_path = str(FILES_DIR / "audio.mp3")
@@ -934,12 +950,12 @@ def create_video(scenes, voice, music, sfx, mood=None, orientation="portrait", p
 
     update_progress(80, "Rendering final video")
 
-    final_cmd = ["ffmpeg", "-y", "-i", temp_path, "-i", audio_path]
+    final_cmd = ["ffmpeg", "-y", "-threads", "1", "-i", temp_path, "-i", audio_path]
     if video_filters:
         final_cmd += ["-vf", ",".join(video_filters)]
     final_cmd += [
         "-map", "0:v:0", "-map", "1:a:0",
-        "-c:v", "libx264", "-preset", "veryfast", "-crf", "22",
+        "-c:v", "libx264", "-preset", "ultrafast", "-crf", "22",
         "-profile:v", "high", "-level", "4.1",
         "-pix_fmt", "yuv420p",
         "-c:a", "aac", "-ar", "44100", "-ac", "2", "-b:a", "192k",
@@ -955,6 +971,8 @@ def create_video(scenes, voice, music, sfx, mood=None, orientation="portrait", p
         ),
         stage_name="Final render",
     )
+    gc.collect()
+    logging.info("[VideoService] GC collect after final render")
 
     # Logo watermark overlay
     if logo_path and os.path.exists(logo_path):
