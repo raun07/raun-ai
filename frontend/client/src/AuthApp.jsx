@@ -1301,7 +1301,7 @@ function StudioPage() {
           )}
           {credits !== null && !isOutOfCredits && (
             <div style={{ marginTop: '12px', fontFamily: 'var(--font-mono)', fontSize: '9px', color: 'var(--text-3)' }}>
-              {credits} reel{Number(credits) !== 1 ? 's' : ''} remaining
+              {credits} / 30 remaining
             </div>
           )}
 
@@ -1598,30 +1598,61 @@ function StudioPage() {
             <div style={{ fontSize: '12px', color: 'var(--text-3)' }}>No reels yet.</div>
           )}
 
-          {history.map((item) => (
-            <div
-              key={item.job_id}
-              onClick={() => loadHistoryItem(item)}
-              style={{
-                background: 'var(--bg-3)',
-                border: selectedHistoryItem?.job_id === item.job_id ? '1px solid var(--border-pink)' : '1px solid var(--border-1)',
-                borderRadius: '8px',
-                padding: '12px',
-                marginBottom: '8px',
-                cursor: 'pointer',
-                transition: 'border-color 0.15s',
-              }}
-              onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--border-pink)'; }}
-              onMouseLeave={(e) => { e.currentTarget.style.borderColor = selectedHistoryItem?.job_id === item.job_id ? 'var(--border-pink)' : 'var(--border-1)'; }}
-            >
-              <div style={{ fontSize: '13px', color: 'var(--text-2)', lineHeight: 1.4, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
-                {(item.prompt || 'Untitled').slice(0, 60)}{(item.prompt?.length ?? 0) > 60 ? '...' : ''}
+          {history.map((item) => {
+            const isCloudinary = item.video_url && item.video_url.includes('res.cloudinary.com');
+            const thumbnail = isCloudinary
+              ? item.video_url.replace('/upload/', '/upload/so_0,w_300/').replace('.mp4', '.jpg')
+              : null;
+            const score = item.eval_score ?? null;
+            const scoreDot = score != null
+              ? (score >= 0.85 ? '#22dd88' : score >= 0.70 ? '#f0b429' : 'var(--pink)')
+              : null;
+
+            return (
+              <div
+                key={item.job_id}
+                onClick={() => loadHistoryItem(item)}
+                style={{
+                  border: selectedHistoryItem?.job_id === item.job_id ? '1px solid var(--border-pink)' : '1px solid var(--border-1)',
+                  borderRadius: '8px',
+                  overflow: 'hidden',
+                  marginBottom: '10px',
+                  background: 'var(--bg-3)',
+                  cursor: 'pointer',
+                  transition: 'border-color 0.15s',
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--border-pink)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.borderColor = selectedHistoryItem?.job_id === item.job_id ? 'var(--border-pink)' : 'var(--border-1)'; }}
+              >
+                {item.video_url && (
+                  <video
+                    src={item.video_url}
+                    muted
+                    preload="none"
+                    controls
+                    {...(thumbnail ? { poster: thumbnail } : {})}
+                    style={{ width: '100%', maxHeight: '180px', objectFit: 'cover', display: 'block' }}
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                )}
+                <div style={{ padding: '8px 10px' }}>
+                  <div style={{ fontSize: '12px', color: 'var(--text-2)', lineHeight: 1.4, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', marginBottom: '5px' }}>
+                    {(item.prompt || 'Untitled').slice(0, 60)}{(item.prompt?.length ?? 0) > 60 ? '...' : ''}
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontFamily: 'var(--font-mono)', fontSize: '9px', color: 'var(--text-3)' }}>
+                    {score != null && (
+                      <>
+                        <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: scoreDot, flexShrink: 0 }} />
+                        <span>{score.toFixed(2)}</span>
+                        <span style={{ color: 'var(--text-4)' }}>·</span>
+                      </>
+                    )}
+                    {item.created_at ? new Date(item.created_at).toLocaleDateString() : ''}
+                  </div>
+                </div>
               </div>
-              <div style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: 'var(--text-3)', marginTop: '6px' }}>
-                {item.created_at ? new Date(item.created_at).toLocaleDateString() : ''}
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </aside>
       </div>
 
