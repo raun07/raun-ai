@@ -844,21 +844,28 @@ function LandingPage() {
 
           <HeroInput />
 
-          <p style={{
-            fontFamily: "'JetBrains Mono', monospace",
-            fontSize: 11,
-            color: '#8a7060',
-            letterSpacing: '0.12em',
-            margin: '0 0 28px',
-          }}>FREE · NO CARD REQUIRED · 30 REELS TO START</p>
+          <div style={{ marginBottom: 28 }}>
+            <p style={{
+              fontFamily: "'JetBrains Mono', monospace",
+              fontSize: 11,
+              color: '#8a7060',
+              letterSpacing: '0.12em',
+              margin: '0 0 4px',
+            }}>FREE · NO CARD REQUIRED · 30 REELS TO START</p>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--text-4)', marginTop: '4px', letterSpacing: '0.05em' }}>
+              each reel takes ~8–10 min on free tier
+            </div>
+          </div>
 
           <div style={{ display: 'flex', justifyContent: 'center', gap: 40 }}>
-            {[['< 60s', 'to render'], ['∞', 'creativity']].map(([num, label]) => (
-              <div key={label} style={{ textAlign: 'center' }}>
-                <div style={{ fontFamily: 'Caveat, cursive', fontSize: 34, fontWeight: 700, color: '#c94030', lineHeight: 1 }}>{num}</div>
-                <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: '#8a7060', letterSpacing: '0.08em', marginTop: 4 }}>{label}</div>
-              </div>
-            ))}
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: 'clamp(18px, 3vw, 28px)', color: 'var(--pink)', fontFamily: 'Caveat, cursive', fontWeight: 700, lineHeight: 1 }}>8–10 min</div>
+              <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: '#8a7060', letterSpacing: '0.08em', marginTop: 4 }}>to generate</div>
+            </div>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontFamily: 'Caveat, cursive', fontSize: 34, fontWeight: 700, color: '#c94030', lineHeight: 1 }}>∞</div>
+              <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: '#8a7060', letterSpacing: '0.08em', marginTop: 4 }}>creativity</div>
+            </div>
           </div>
         </div>
       </section>
