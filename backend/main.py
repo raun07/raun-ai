@@ -97,6 +97,7 @@ cloudinary.config(
 
 CELERY_ENABLED = os.getenv("CELERY_ENABLED", "false").lower() == "true"
 _pipeline_semaphore = asyncio.Semaphore(1)
+_jobs_in_queue = 0
 
 
 @asynccontextmanager
@@ -353,12 +354,32 @@ async def run_pipeline_directly(
     scene_count, include_narration, logo_position, logo_size, logo_timing,
     logo_url, outro_url, music_seed, user_clips=None,
 ):
+    global _jobs_in_queue
+    _jobs_in_queue += 1
+    position = _jobs_in_queue
+
     persist_job_updates(job_id, {
         "status": "queued",
         "progress": 0,
-        "message": "Waiting for previous job to finish...",
+        "message": f"Queue position #{position}. Each job takes ~8-10 min.",
     })
-    async with _pipeline_semaphore:
+
+    try:
+        await asyncio.wait_for(
+            _pipeline_semaphore.acquire(),
+            timeout=900,  # 15 min max wait
+        )
+    except asyncio.TimeoutError:
+        _jobs_in_queue = max(0, _jobs_in_queue - 1)
+        persist_job_updates(job_id, {
+            "status": "failed",
+            "error": "Server busy. Please try again in a few minutes.",
+        })
+        return
+
+    _jobs_in_queue = max(0, _jobs_in_queue - 1)
+
+    try:
         persist_job_updates(job_id, {
             "status": "processing",
             "progress": 1,
@@ -379,7 +400,19 @@ async def run_pipeline_directly(
                 loop.close()
                 asyncio.set_event_loop(None)
 
-        await asyncio.to_thread(run_sync)
+        try:
+            await asyncio.wait_for(
+                asyncio.to_thread(run_sync),
+                timeout=1200,  # 20 min hard limit
+            )
+        except asyncio.TimeoutError:
+            persist_job_updates(job_id, {
+                "status": "failed",
+                "error": "Generation timed out. Try with 3 scenes.",
+            })
+            return
+    finally:
+        _pipeline_semaphore.release()
 
 
 def dispatch_generation_job(background_tasks, prompt, job_id, user_id, orientation="portrait", footage_ids=None, export_formats=None, apply_brand_kit=True, transition_style="auto", music_id="", voice_id="", scene_count=3, include_narration=True, logo_position="top-right", logo_size="S", logo_timing="full", logo_url="", outro_url="", music_seed=0, user_clips=None):
