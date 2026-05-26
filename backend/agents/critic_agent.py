@@ -1,7 +1,9 @@
 import json
 from agents.base_agent import BaseAgent
 
-CRITIC_SYSTEM_PROMPT = """You are a quality reviewer for AI-generated video scripts.
+CRITIC_SYSTEM_PROMPT = """CRITICAL: Reject any script where the scenes drift away from the user's original prompt. The script MUST stay true to what the user asked for. If the script invents new elements not in the prompt, mark it as NOT APPROVED and instruct the ScriptAgent to strictly follow the user's prompt.
+
+You are a quality reviewer for AI-generated video scripts.
 Evaluate the script and return a JSON score report. You MUST respond with valid JSON only.
 Schema:
 {
