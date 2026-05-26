@@ -7,6 +7,16 @@ logger = logging.getLogger(__name__)
 SCHEMA_STATEMENTS = [
     "CREATE EXTENSION IF NOT EXISTS pgcrypto;",
     """
+    CREATE TABLE IF NOT EXISTS feedback (
+        id SERIAL PRIMARY KEY,
+        name TEXT,
+        email TEXT,
+        type TEXT,
+        note TEXT,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+    """,
+    """
     CREATE TABLE IF NOT EXISTS users (
         id TEXT PRIMARY KEY,
         email TEXT UNIQUE,

@@ -383,6 +383,35 @@ function FeatureCard({ cap, title, desc }) {
 /* ─── FeedbackSection ─────────────────────────────────────── */
 
 function FeedbackSection() {
+  const [feedbackType, setFeedbackType] = useState('');
+  const [feedbackName, setFeedbackName] = useState('');
+  const [feedbackEmail, setFeedbackEmail] = useState('');
+  const [feedbackNote, setFeedbackNote] = useState('');
+  const [feedbackSent, setFeedbackSent] = useState(false);
+
+  const handleFeedbackSubmit = async () => {
+    if (!feedbackNote.trim()) return;
+    try {
+      await fetch(`${import.meta.env.VITE_API_URL}/feedback`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: feedbackName || 'Anonymous',
+          email: feedbackEmail || 'none',
+          feedback_type: feedbackType || 'General',
+          note: feedbackNote,
+        }),
+      });
+      setFeedbackSent(true);
+      setFeedbackNote('');
+      setFeedbackName('');
+      setFeedbackEmail('');
+      setFeedbackType('');
+    } catch (e) {
+      console.error('Feedback failed', e);
+    }
+  };
+
   return (
     <section style={{ background: '#ede7d8', padding: '80px 24px', position: 'relative', zIndex: 1, overflow: 'hidden' }}>
       <NotebookBg lineOpacity={0.14} hatchOpacity={0.08} />
@@ -443,12 +472,17 @@ function FeedbackSection() {
 
           {/* Name + email */}
           <div style={{ display: 'flex', gap: 12, marginBottom: 20 }}>
-            {['NAME', 'EMAIL'].map((label, i) => (
+            {[
+              { label: 'NAME', type: 'text', placeholder: 'Your name', value: feedbackName, onChange: (e) => setFeedbackName(e.target.value) },
+              { label: 'EMAIL', type: 'email', placeholder: 'Your email', value: feedbackEmail, onChange: (e) => setFeedbackEmail(e.target.value) },
+            ].map(({ label, type, placeholder, value, onChange }) => (
               <div key={label} style={{ flex: 1 }}>
                 <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, color: '#8a7060', letterSpacing: '0.1em', marginBottom: 6 }}>{label}</div>
                 <input
-                  type={i === 0 ? 'text' : 'email'}
-                  placeholder={i === 0 ? 'Your name' : 'Your email'}
+                  type={type}
+                  placeholder={placeholder}
+                  value={value}
+                  onChange={onChange}
                   style={{
                     width: '100%', background: 'transparent', border: 'none',
                     borderBottom: '1.5px solid rgba(26,16,8,0.2)',
@@ -470,13 +504,18 @@ function FeedbackSection() {
               {['Bug report', 'Feature request', 'General', 'Love it ❤️'].map((t) => (
                 <button
                   key={t}
+                  onClick={() => setFeedbackType(t)}
                   style={{
-                    fontFamily: 'Caveat, cursive', fontSize: 16, padding: '4px 14px',
-                    background: 'transparent', border: '1.5px solid rgba(201,64,48,0.3)',
-                    borderRadius: 4, color: '#3d2b1a', cursor: 'pointer', transition: 'all 0.15s',
+                    border: feedbackType === t ? '1.5px solid var(--pink)' : '1px solid rgba(201,64,48,0.3)',
+                    background: feedbackType === t ? 'rgba(255,45,120,0.08)' : 'transparent',
+                    color: feedbackType === t ? 'var(--pink)' : '#3d2b1a',
+                    borderRadius: '20px',
+                    padding: '6px 16px',
+                    cursor: 'pointer',
+                    fontFamily: "'JetBrains Mono', monospace",
+                    fontSize: '11px',
+                    transition: 'all 0.15s',
                   }}
-                  onMouseEnter={(e) => { e.currentTarget.style.background = '#c94030'; e.currentTarget.style.color = '#fff'; e.currentTarget.style.borderColor = '#c94030'; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#3d2b1a'; e.currentTarget.style.borderColor = 'rgba(201,64,48,0.3)'; }}
                 >{t}</button>
               ))}
             </div>
@@ -492,6 +531,8 @@ function FeedbackSection() {
               <textarea
                 placeholder="What's on your mind? Any bugs, ideas, or just vibes..."
                 rows={5}
+                value={feedbackNote}
+                onChange={(e) => setFeedbackNote(e.target.value)}
                 style={{
                   width: '100%', background: 'transparent', border: 'none',
                   borderBottom: '1.5px solid rgba(26,16,8,0.15)',
@@ -506,17 +547,23 @@ function FeedbackSection() {
             </div>
           </div>
 
-          <button
-            style={{
-              width: '100%', padding: '14px', background: '#c94030', color: '#fff',
-              border: '2px solid #1a1008', borderRadius: 6,
-              fontFamily: 'Caveat, cursive', fontSize: 22, letterSpacing: '0.04em',
-              cursor: 'pointer', boxShadow: '4px 4px 0 #1a1008', transition: 'transform 0.1s, box-shadow 0.1s',
-            }}
-            onMouseEnter={(e) => { e.currentTarget.style.transform = 'translate(-2px,-2px)'; e.currentTarget.style.boxShadow = '6px 6px 0 #1a1008'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = '4px 4px 0 #1a1008'; }}
-            onClick={() => alert('Thanks for the feedback! 🎬')}
-          >Submit Note →</button>
+          {feedbackSent ? (
+            <div style={{ textAlign: 'center', fontFamily: 'Caveat, cursive', fontSize: 28, color: '#c94030', padding: '14px 0' }}>
+              Thanks! 🎉
+            </div>
+          ) : (
+            <button
+              style={{
+                width: '100%', padding: '14px', background: '#c94030', color: '#fff',
+                border: '2px solid #1a1008', borderRadius: 6,
+                fontFamily: 'Caveat, cursive', fontSize: 22, letterSpacing: '0.04em',
+                cursor: 'pointer', boxShadow: '4px 4px 0 #1a1008', transition: 'transform 0.1s, box-shadow 0.1s',
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.transform = 'translate(-2px,-2px)'; e.currentTarget.style.boxShadow = '6px 6px 0 #1a1008'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = '4px 4px 0 #1a1008'; }}
+              onClick={handleFeedbackSubmit}
+            >Submit Note →</button>
+          )}
         </div>
       </div>
     </section>

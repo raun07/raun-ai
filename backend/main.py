@@ -57,7 +57,7 @@ from services.audio_service import (
     get_audio_duration_seconds,
 )
 from middleware.auth import get_current_user
-from database.db import init_db, close_db
+from database.db import init_db, close_db, get_pool
 from database.crud import (
     create_generation,
     decrement_credits,
@@ -156,6 +156,13 @@ class IdeasRequest(BaseModel):
     niche: str = "general"
     platform: str = "instagram"
     count: int = 5
+
+
+class FeedbackRequest(BaseModel):
+    name: str
+    email: str
+    feedback_type: str
+    note: str
 
 
 def run_async_db_task(coro, operation_name, default=None):
@@ -966,6 +973,29 @@ async def upload_voice_recording(
         dest.rename(canonical)
     logging.info(f"[Upload] User {user_id} uploaded voice: {file.filename} → voice_rec_{voice_id}.mp3")
     return {"voice_id": voice_id, "filename": file.filename}
+
+
+@app.post("/feedback")
+async def submit_feedback(feedback: FeedbackRequest):
+    logging.info(
+        f"[Feedback] {feedback.feedback_type} from "
+        f"{feedback.name} <{feedback.email}>: {feedback.note[:100]}"
+    )
+    try:
+        pool = get_pool()
+        if pool is not None:
+            async with pool.acquire() as conn:
+                await conn.execute(
+                    """
+                    INSERT INTO feedback (name, email, type, note, created_at)
+                    VALUES ($1, $2, $3, $4, NOW())
+                    """,
+                    feedback.name, feedback.email,
+                    feedback.feedback_type, feedback.note,
+                )
+    except Exception as e:
+        logging.warning(f"[Feedback] DB insert failed: {e}")
+    return {"status": "received"}
 
 
 @app.get("/api/health")
