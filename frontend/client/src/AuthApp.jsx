@@ -102,6 +102,8 @@ function StudioPage() {
   const [recording, setRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [voicePreviewUrl, setVoicePreviewUrl] = useState(null);
+  const [userClips, setUserClips] = useState([]);
+  const [clipError, setClipError] = useState('');
   const [reelCredits, setReelCredits] = useState(null);
   const [satisfaction, setSatisfaction] = useState(null);
   const [resultScenes, setResultScenes] = useState([]);
@@ -379,30 +381,54 @@ function StudioPage() {
     }
 
     try {
-      const res = await fetch(`${API_BASE_URL}/generate`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(await getAuthHeaders()),
-        },
-        body: JSON.stringify({
-          prompt: effectivePrompt,
-          orientation,
-          footage_ids: resolvedAssetIds,
-          export_formats: exportFormats,
-          apply_brand_kit: applyBrandKit,
-          transition_style: transitionStyle,
-          music_id: musicMode === "upload" ? customMusicId : "",
-          voice_id: voiceMode !== "ai" ? customVoiceId : "",
-          scene_count: sceneCount,
-          include_narration: aiNarration,
-          logo_position: logoPosition,
-          logo_size: logoSize,
-          logo_timing: logoTiming,
-          logo_url: applyBrandKit && brandKit?.logo_url ? brandKit.logo_url : "",
-          outro_url: applyBrandKit && brandKit?.outro_clip_url ? brandKit.outro_clip_url : "",
-        }),
-      });
+      let res;
+      if (userClips.length > 0) {
+        const form = new FormData();
+        form.append("prompt", effectivePrompt);
+        form.append("orientation", orientation);
+        form.append("scene_count", String(sceneCount));
+        form.append("include_narration", String(aiNarration));
+        form.append("transition_style", transitionStyle);
+        form.append("apply_brand_kit", String(applyBrandKit));
+        form.append("music_id", musicMode === "upload" ? customMusicId : "");
+        form.append("voice_id", voiceMode !== "ai" ? customVoiceId : "");
+        form.append("logo_position", logoPosition);
+        form.append("logo_size", logoSize);
+        form.append("logo_timing", logoTiming);
+        form.append("logo_url", applyBrandKit && brandKit?.logo_url ? brandKit.logo_url : "");
+        form.append("outro_url", applyBrandKit && brandKit?.outro_clip_url ? brandKit.outro_clip_url : "");
+        userClips.forEach((clip) => form.append("clips", clip));
+        res = await fetch(`${API_BASE_URL}/generate-with-clips`, {
+          method: "POST",
+          headers: await getAuthHeaders(),
+          body: form,
+        });
+      } else {
+        res = await fetch(`${API_BASE_URL}/generate`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(await getAuthHeaders()),
+          },
+          body: JSON.stringify({
+            prompt: effectivePrompt,
+            orientation,
+            footage_ids: resolvedAssetIds,
+            export_formats: exportFormats,
+            apply_brand_kit: applyBrandKit,
+            transition_style: transitionStyle,
+            music_id: musicMode === "upload" ? customMusicId : "",
+            voice_id: voiceMode !== "ai" ? customVoiceId : "",
+            scene_count: sceneCount,
+            include_narration: aiNarration,
+            logo_position: logoPosition,
+            logo_size: logoSize,
+            logo_timing: logoTiming,
+            logo_url: applyBrandKit && brandKit?.logo_url ? brandKit.logo_url : "",
+            outro_url: applyBrandKit && brandKit?.outro_clip_url ? brandKit.outro_clip_url : "",
+          }),
+        });
+      }
       const data = await res.json();
       if (!res.ok) {
         if (data.error === "credits_exhausted") {
@@ -1028,6 +1054,65 @@ function StudioPage() {
               )}
             </>
           )}
+
+          {/* CLIPS */}
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: 'var(--text-3)', letterSpacing: '0.15em', textTransform: 'uppercase', marginTop: '20px', marginBottom: '8px' }}>Clips</div>
+          <label
+            style={{
+              display: 'block', width: '100%', boxSizing: 'border-box',
+              padding: '14px 12px',
+              borderRadius: '8px',
+              border: '1.5px dashed var(--border-1)',
+              color: 'var(--text-3)',
+              fontFamily: 'Inter, sans-serif',
+              fontSize: '12px',
+              cursor: 'pointer',
+              textAlign: 'center',
+              lineHeight: 1.5,
+              transition: 'border-color 0.15s',
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--border-pink)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border-1)'; }}
+          >
+            <div>📁 Upload clips (optional)</div>
+            <div style={{ fontSize: '11px', marginTop: '2px', color: 'var(--text-4)' }}>Drop .mp4 files here or click to browse</div>
+            <input
+              type="file"
+              accept="video/mp4,video/mov,video/quicktime"
+              multiple
+              style={{ display: 'none' }}
+              onChange={(e) => {
+                const files = Array.from(e.target.files || []);
+                if (files.length + userClips.length > 3) {
+                  setClipError('Max 3 clips allowed.');
+                  return;
+                }
+                setClipError('');
+                setUserClips((prev) => [...prev, ...files].slice(0, 3));
+                e.target.value = '';
+              }}
+            />
+          </label>
+          {clipError && (
+            <div style={{ marginTop: '4px', fontSize: '11px', color: 'var(--pink)' }}>{clipError}</div>
+          )}
+          {userClips.length > 0 && (
+            <div style={{ marginTop: '6px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              {userClips.map((clip, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '5px 8px', borderRadius: '6px', background: 'var(--bg-3)', border: '1px solid var(--border-1)' }}>
+                  <span style={{ fontFamily: 'Inter, sans-serif', fontSize: '11px', color: 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '190px' }}>{clip.name}</span>
+                  <button
+                    type="button"
+                    onClick={() => { setUserClips((prev) => prev.filter((_, j) => j !== i)); setClipError(''); }}
+                    style={{ background: 'none', border: 'none', color: 'var(--text-3)', fontSize: '12px', cursor: 'pointer', flexShrink: 0, paddingLeft: '6px' }}
+                  >✕</button>
+                </div>
+              ))}
+            </div>
+          )}
+          <div style={{ marginTop: '4px', fontFamily: 'var(--font-mono)', fontSize: '9px', color: 'var(--text-4)' }}>
+            {userClips.length > 0 ? `${userClips.length}/3 clip${userClips.length !== 1 ? 's' : ''} — cycles across scenes` : 'Using AI stock footage if empty'}
+          </div>
 
           {/* MUSIC */}
           <div style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: 'var(--text-3)', letterSpacing: '0.15em', textTransform: 'uppercase', marginTop: '20px', marginBottom: '8px' }}>Music</div>

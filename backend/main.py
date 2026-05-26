@@ -1,6 +1,6 @@
 import asyncio
 
-from fastapi import FastAPI, BackgroundTasks, Request, Depends, HTTPException, UploadFile, File
+from fastapi import FastAPI, BackgroundTasks, Request, Depends, HTTPException, UploadFile, File, Form
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
@@ -229,6 +229,7 @@ def cleanup_temporary_files(job_id):
     files_to_delete = (
         glob.glob(str(FILES_DIR / "clip_*.mp4"))
         + glob.glob(str(FILES_DIR / "placeholder_*.mp4"))
+        + glob.glob(str(FILES_DIR / "user_clip_*.mp4"))
         + [
             file_in_backend("concat_sources.txt"),
             file_in_backend("temp.mp4"),
@@ -350,7 +351,7 @@ async def run_pipeline_directly(
     prompt, job_id, user_id, orientation, footage_ids, export_formats,
     apply_brand_kit, transition_style, music_id, voice_id,
     scene_count, include_narration, logo_position, logo_size, logo_timing,
-    logo_url, outro_url, music_seed,
+    logo_url, outro_url, music_seed, user_clips=None,
 ):
     persist_job_updates(job_id, {
         "status": "queued",
@@ -372,7 +373,7 @@ async def run_pipeline_directly(
                     prompt, job_id, user_id, orientation, footage_ids, export_formats,
                     apply_brand_kit, transition_style, music_id, voice_id,
                     scene_count, include_narration, logo_position, logo_size, logo_timing,
-                    logo_url, outro_url, music_seed,
+                    logo_url, outro_url, music_seed, user_clips,
                 )
             finally:
                 loop.close()
@@ -381,7 +382,7 @@ async def run_pipeline_directly(
         await asyncio.to_thread(run_sync)
 
 
-def dispatch_generation_job(background_tasks, prompt, job_id, user_id, orientation="portrait", footage_ids=None, export_formats=None, apply_brand_kit=True, transition_style="auto", music_id="", voice_id="", scene_count=3, include_narration=True, logo_position="top-right", logo_size="S", logo_timing="full", logo_url="", outro_url="", music_seed=0):
+def dispatch_generation_job(background_tasks, prompt, job_id, user_id, orientation="portrait", footage_ids=None, export_formats=None, apply_brand_kit=True, transition_style="auto", music_id="", voice_id="", scene_count=3, include_narration=True, logo_position="top-right", logo_size="S", logo_timing="full", logo_url="", outro_url="", music_seed=0, user_clips=None):
     request_payload = {
         "prompt": prompt,
         "user_id": user_id,
@@ -425,11 +426,12 @@ def dispatch_generation_job(background_tasks, prompt, job_id, user_id, orientati
         scene_count, include_narration,
         logo_position, logo_size, logo_timing,
         logo_url or "", outro_url or "", music_seed,
+        user_clips or None,
     )
     return "background"
 
 
-def generate_video_pipeline(prompt, job_id, user_id, orientation="portrait", footage_ids=None, export_formats=None, apply_brand_kit=True, transition_style="auto", music_id="", voice_id="", scene_count=3, include_narration=True, logo_position="top-right", logo_size="S", logo_timing="full", logo_url="", outro_url="", music_seed=0):
+def generate_video_pipeline(prompt, job_id, user_id, orientation="portrait", footage_ids=None, export_formats=None, apply_brand_kit=True, transition_style="auto", music_id="", voice_id="", scene_count=3, include_narration=True, logo_position="top-right", logo_size="S", logo_timing="full", logo_url="", outro_url="", music_seed=0, user_clips=None):
     """
     Main video generation pipeline - runs in background.
     Updates the jobs dictionary with status and results.
@@ -467,19 +469,24 @@ def generate_video_pipeline(prompt, job_id, user_id, orientation="portrait", foo
 
         logging.info(f"[{job_id}] Fetching videos...")
         update_job(job_id, progress=12, message="Downloading scene footage")
-        download_loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(download_loop)
-        if footage_ids:
-            update_job(job_id, progress=12, message="Using your uploaded footage")
-            downloaded_videos = download_loop.run_until_complete(
-                prepare_user_footage(footage_ids, scenes, orientation=orientation, timeout_seconds=20)
-            )
+        if user_clips:
+            update_job(job_id, progress=12, message="Using your uploaded clips")
+            downloaded_videos = [user_clips[i % len(user_clips)] for i in range(len(scenes))]
+            logging.info(f"[{job_id}] Cycling {len(user_clips)} clip(s) across {len(scenes)} scene(s)")
         else:
-            downloaded_videos = download_loop.run_until_complete(
-                download_all_scenes(scenes, timeout_seconds=20, orientation=orientation)
-            )
-        download_loop.close()
-        asyncio.set_event_loop(None)
+            download_loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(download_loop)
+            if footage_ids:
+                update_job(job_id, progress=12, message="Using your uploaded footage")
+                downloaded_videos = download_loop.run_until_complete(
+                    prepare_user_footage(footage_ids, scenes, orientation=orientation, timeout_seconds=20)
+                )
+            else:
+                downloaded_videos = download_loop.run_until_complete(
+                    download_all_scenes(scenes, timeout_seconds=20, orientation=orientation)
+                )
+            download_loop.close()
+            asyncio.set_event_loop(None)
 
         footage_count = sum(1 for v in downloaded_videos if str(v or "").startswith("http"))
         trace.add_span(
@@ -1085,6 +1092,110 @@ async def generate(
     # Change: prefer Celery worker dispatch when available, but keep the
     # existing BackgroundTasks path as a local-dev fallback so generation never breaks.
     dispatch_generation_job(background_tasks, data.prompt, job_id, user_id, data.orientation, data.footage_ids, data.export_formats, data.apply_brand_kit, data.transition_style, data.music_id, data.voice_id, data.scene_count, data.include_narration, data.logo_position, data.logo_size, data.logo_timing, data.logo_url, data.outro_url, data.music_seed)
+
+    return {
+        "job_id": job_id,
+        "user_id": user_id,
+        "status": "queued",
+        "message": "Video generation queued. Check status with /status/{job_id}",
+    }
+
+
+@app.post("/generate-with-clips")
+async def generate_with_clips(
+    background_tasks: BackgroundTasks,
+    prompt: str = Form(...),
+    orientation: str = Form("portrait"),
+    scene_count: int = Form(3),
+    include_narration: bool = Form(True),
+    transition_style: str = Form("auto"),
+    apply_brand_kit: bool = Form(True),
+    music_id: str = Form(""),
+    voice_id: str = Form(""),
+    logo_position: str = Form("top-right"),
+    logo_size: str = Form("S"),
+    logo_timing: str = Form("full"),
+    logo_url: str = Form(""),
+    outro_url: str = Form(""),
+    clips: list[UploadFile] = File(default=[]),
+    user_id: str = Depends(get_current_user),
+):
+    cleanup_jobs()
+
+    user_record = await run_async_db_task_async(
+        get_or_create_user(user_id, None),
+        f"get_or_create_user({user_id})",
+        default={"id": user_id, "tier": "free", "credits": 30},
+    )
+    user_tier = (user_record or {}).get("tier", "free")
+
+    if user_tier != "pro":
+        credits = await run_async_db_task_async(
+            get_user_credits(user_id),
+            f"get_user_credits({user_id})",
+            default=(user_record or {}).get("credits", 30),
+        )
+        if int(credits or 0) == 0:
+            return JSONResponse(
+                status_code=402,
+                content={
+                    "error": "credits_exhausted",
+                    "message": "You've used all your free reels. Upgrade to Pro for unlimited.",
+                    "upgrade_url": "/pricing",
+                },
+            )
+        await run_async_db_task_async(
+            decrement_credits(user_id),
+            f"decrement_credits({user_id})",
+            default=max(int(credits or 1) - 1, 0),
+        )
+
+    # Save uploaded clips (max 3) to FILES_DIR
+    clip_paths = []
+    for i, clip in enumerate(clips[:3]):
+        clip_path = FILES_DIR / f"user_clip_{i}_{uuid.uuid4().hex[:8]}.mp4"
+        content = await clip.read()
+        clip_path.write_bytes(content)
+        clip_paths.append(str(clip_path))
+        logging.info(f"[Clips] Saved clip {i+1}: {clip_path.name} ({len(content)//1024}KB)")
+
+    job_id = str(uuid.uuid4())
+    logging.info(f"[Main] Created clip job {job_id} for user {user_id}")
+
+    await run_async_db_task_async(
+        create_generation(user_id, job_id, prompt),
+        f"create_generation({job_id})",
+    )
+
+    set_job(
+        job_id,
+        {
+            "status": "queued",
+            "result": None,
+            "error": None,
+            "created_at": time.time(),
+            "progress": 0,
+            "message": "Queued",
+            "user_id": user_id,
+        },
+    )
+
+    dispatch_generation_job(
+        background_tasks, prompt, job_id, user_id,
+        orientation=orientation,
+        scene_count=scene_count,
+        include_narration=include_narration,
+        transition_style=transition_style,
+        apply_brand_kit=apply_brand_kit,
+        music_id=music_id,
+        voice_id=voice_id,
+        logo_position=logo_position,
+        logo_size=logo_size,
+        logo_timing=logo_timing,
+        logo_url=logo_url,
+        outro_url=outro_url,
+        user_clips=clip_paths if clip_paths else None,
+    )
 
     return {
         "job_id": job_id,
