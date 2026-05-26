@@ -108,7 +108,7 @@ function StudioPage() {
   const [satisfaction, setSatisfaction] = useState(null);
   const [resultScenes, setResultScenes] = useState([]);
   const [aiNarration, setAiNarration] = useState(true);
-  const [sceneCount, setSceneCount] = useState(5);
+  const [sceneCount, setSceneCount] = useState(3);
   const [durationPreset, setDurationPreset] = useState("medium");
   const [lastJobId, setLastJobId] = useState(null);
   const [generatingScript, setGeneratingScript] = useState(null);
@@ -859,26 +859,34 @@ function StudioPage() {
           {/* SCENES */}
           <div style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: 'var(--text-3)', letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: '8px', marginTop: '20px' }}>Scenes</div>
           <div style={{ display: 'flex', gap: '6px' }}>
-            {[3, 4, 5, 6, 7, 8].map((n) => (
-              <button
-                key={n}
-                type="button"
-                onClick={() => setSceneCount(n)}
-                style={{
-                  flex: 1,
-                  borderRadius: '8px',
-                  border: sceneCount === n ? '1.5px solid var(--pink)' : '1.5px solid var(--border-1)',
-                  fontFamily: 'Inter, sans-serif',
-                  fontSize: '13px',
-                  fontWeight: 500,
-                  padding: '7px 4px',
-                  color: sceneCount === n ? '#fff' : 'var(--text-2)',
-                  background: sceneCount === n ? 'var(--pink)' : 'transparent',
-                  cursor: 'pointer',
-                  transition: 'all 0.15s',
-                }}
-              >{n}</button>
-            ))}
+            {[3, 4, 5, 6, 7, 8].map((n) => {
+              const locked = n !== 3;
+              return (
+                <button
+                  key={n}
+                  type="button"
+                  onClick={locked ? undefined : () => setSceneCount(n)}
+                  title={locked ? 'Unlock with Pro' : undefined}
+                  style={{
+                    flex: 1,
+                    borderRadius: '8px',
+                    border: !locked && sceneCount === n ? '1.5px solid var(--pink)' : '1px solid var(--border-1)',
+                    fontFamily: 'Inter, sans-serif',
+                    fontSize: '12px',
+                    fontWeight: 500,
+                    padding: '7px 4px',
+                    color: !locked && sceneCount === n ? '#fff' : 'var(--text-4)',
+                    background: !locked && sceneCount === n ? 'var(--pink)' : 'transparent',
+                    cursor: locked ? 'not-allowed' : 'pointer',
+                    opacity: locked ? 0.3 : 1,
+                    transition: 'all 0.15s',
+                  }}
+                >{locked ? '🔒' : n}</button>
+              );
+            })}
+          </div>
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: 'var(--text-4)', marginTop: '6px', letterSpacing: '0.05em' }}>
+            3 scenes recommended for free tier
           </div>
 
           {/* TRANSITIONS */}
