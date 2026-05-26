@@ -345,14 +345,33 @@ async def run_pipeline_directly(
     scene_count, include_narration, logo_position, logo_size, logo_timing,
     logo_url, outro_url, music_seed,
 ):
+    persist_job_updates(job_id, {
+        "status": "queued",
+        "progress": 0,
+        "message": "Waiting for previous job to finish...",
+    })
     async with _pipeline_semaphore:
-        await asyncio.to_thread(
-            generate_video_pipeline,
-            prompt, job_id, user_id, orientation, footage_ids, export_formats,
-            apply_brand_kit, transition_style, music_id, voice_id,
-            scene_count, include_narration, logo_position, logo_size, logo_timing,
-            logo_url, outro_url, music_seed,
-        )
+        persist_job_updates(job_id, {
+            "status": "processing",
+            "progress": 1,
+            "message": "Starting pipeline...",
+        })
+
+        def run_sync():
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            try:
+                return generate_video_pipeline(
+                    prompt, job_id, user_id, orientation, footage_ids, export_formats,
+                    apply_brand_kit, transition_style, music_id, voice_id,
+                    scene_count, include_narration, logo_position, logo_size, logo_timing,
+                    logo_url, outro_url, music_seed,
+                )
+            finally:
+                loop.close()
+                asyncio.set_event_loop(None)
+
+        await asyncio.to_thread(run_sync)
 
 
 def dispatch_generation_job(background_tasks, prompt, job_id, user_id, orientation="portrait", footage_ids=None, export_formats=None, apply_brand_kit=True, transition_style="auto", music_id="", voice_id="", scene_count=3, include_narration=True, logo_position="top-right", logo_size="S", logo_timing="full", logo_url="", outro_url="", music_seed=0):
