@@ -178,7 +178,3 @@ raun-ai/
 
 > Free tier note: Generation takes 8-10 min due to shared CPU.
 > Upgrading Render to $7/month reduces this to ~4-5 min.
-
----
-
-*Built with Claude Code + a lot of production debugging*
