@@ -181,21 +181,4 @@ raun-ai/
 
 ---
 
-## Roadmap
-
-- [ ] AI-generated footage (Runway ML / Google Veo)
-- [ ] Hook / Body / CTA segment editing
-- [ ] Upload own clips
-- [ ] RAG-based brand voice
-- [ ] Custom domain + Google OAuth
-
----
-
-## Built by
-
-**Raun** — Final Year CSE @ Sir MVIT, Bengaluru  
-[raun-ai.vercel.app](https://raun-ai.vercel.app) · [LinkedIn](https://linkedin.com/in/raun)
-
----
-
 *Built with Claude Code + a lot of production debugging*
