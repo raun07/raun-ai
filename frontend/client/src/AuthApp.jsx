@@ -1338,6 +1338,31 @@ function StudioPage() {
             {loading ? 'generating...' : 'generate film →'}
           </button>
 
+          {/* Cancel button — visible only while generating */}
+          {loading && (
+            <button
+              type="button"
+              onClick={handleCancel}
+              style={{
+                width: '100%',
+                height: '40px',
+                marginTop: '8px',
+                background: 'transparent',
+                border: '1.5px solid var(--border-pink)',
+                borderRadius: '10px',
+                fontFamily: 'Caveat, cursive',
+                fontSize: '18px',
+                color: 'var(--text-2)',
+                cursor: 'pointer',
+                transition: 'all 0.15s',
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--pink-soft)'; e.currentTarget.style.color = 'var(--pink)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-2)'; }}
+            >
+              ✕ cancel
+            </button>
+          )}
+
           {/* System status */}
           <div style={{ marginTop: '10px', display: 'flex', alignItems: 'center', gap: '6px', fontFamily: 'var(--font-mono)', fontSize: '9px', color: 'var(--text-3)' }}>
             <span style={{
